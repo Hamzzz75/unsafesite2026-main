@@ -21,7 +21,7 @@ const upload = multer({
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/tp_jwt_mongodb';
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const JWT_SECRET = process.env.JWT_SECRET || 'x7#Kp2$mQz9!vLw4@nRj6&hYb8^cTe1';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '365d';
 
 let db;
@@ -30,10 +30,14 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.get('/', (req, res) => {
+  res.redirect('/pages/login.html');
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 function signToken(user) {
-  // FAILLE JWT volontaire : rôle et données sensibles dans le token, secret faible.
   return jwt.sign({
     id: user._id.toString(),
     username: user.username,
@@ -57,7 +61,6 @@ function authRequired(req, res, next) {
 }
 
 function adminRequired(req, res, next) {
-  // FAILLE volontaire : confiance totale dans le rôle présent dans le JWT.
   if (req.user && req.user.role === 'admin') return next();
   return res.status(403).json({ error: 'Admin uniquement' });
 }
@@ -65,10 +68,11 @@ function adminRequired(req, res, next) {
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
 
-  // FAILLE NoSQL Injection volontaire : entrée utilisateur directement dans la requête.
-  // Exemple pédagogique : username/password peuvent être des objets JSON.
-  const user = await db.collection('users').findOne({ username, password });
+  if (typeof username !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Identifiants invalides' });
+  }
 
+  const user = await db.collection('users').findOne({ username, password });
   if (!user) return res.status(401).json({ error: 'Identifiants invalides' });
 
   const token = signToken(user);
@@ -125,13 +129,11 @@ app.get('/api/me', authRequired, async (req, res) => {
 });
 
 app.get('/api/users', authRequired, async (req, res) => {
-  // FAILLE volontaire : tous les utilisateurs peuvent lister les profils.
   const users = await db.collection('users').find({}, { projection: { password: 0 } }).toArray();
   res.json(users);
 });
 
 app.get('/api/users/:id', authRequired, async (req, res) => {
-  // FAILLE IDOR / ObjectId enumeration volontaire : aucun contrôle propriétaire/admin.
   try {
     const user = await db.collection('users').findOne({ _id: new ObjectId(req.params.id) }, { projection: { password: 0 } });
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
@@ -176,8 +178,7 @@ app.put('/api/users/:id', authRequired, upload.single('avatar'), async (req, res
 });
 
 app.get('/api/posts', authRequired, async (req, res) => {
-  // FAILLE logique volontaire : un paramètre peut exposer les posts admin.
-  const includeAdmin = req.query.includeAdmin === 'true';
+  const includeAdmin = req.query.includeAdmin === 'true' && req.user.role === 'admin';
   const filter = includeAdmin ? {} : { visibility: 'public' };
   const posts = await db.collection('posts').aggregate([
     { $match: filter },
@@ -260,16 +261,6 @@ app.get('/api/admin', authRequired, adminRequired, async (req, res) => {
     warning: 'Ce endpoint fait confiance au rôle contenu dans le JWT.',
     users,
     flags
-  });
-});
-
-app.get('/api/debug/config', async (req, res) => {
-  // FAILLE info disclosure volontaire.
-  res.json({
-    app: 'TP JWT MongoDB',
-    jwtSecret: JWT_SECRET,
-    mongoUri: MONGO_URI,
-    note: 'Endpoint debug volontairement exposé pour le TP.'
   });
 });
 

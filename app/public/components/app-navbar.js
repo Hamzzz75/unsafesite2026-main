@@ -45,7 +45,7 @@ class AppNavbar extends HTMLElement {
     });
 
     window.goHome = function(action) {
-      window.location.href = action ? '/?action=' + action : '/';
+      window.location.href = action ? '/index.html?action=' + action : '/index.html';
     };
 
     window.goToUsers = function() {
