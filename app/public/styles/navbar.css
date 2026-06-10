@@ -1,0 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+app-navbar {
+  display: block;
+  width: 100%;
+}
+
+.gn-bar {
+  background: #000;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  min-height: 52px;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  overflow: hidden;
+}
+
+/* Scanlines comme le login */
+.gn-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent, transparent 2px,
+    rgba(255,255,255,0.013) 2px,
+    rgba(255,255,255,0.013) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.gn-brand {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.85);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.gn-brand-icon {
+  width: 20px; height: 20px;
+  border: 1px solid rgba(255,255,255,0.45);
+  border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  color: rgba(255,255,255,0.85);
+}
+
+.gn-divider {
+  width: 1px; height: 28px;
+  background: linear-gradient(180deg, transparent, rgba(255,255,255,0.12), transparent);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.gn-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+
+.gn-btn {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0;
+  padding: 7px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  position: relative;
+  margin: 0;
+}
+
+.gn-btn:hover {
+  color: #fff;
+  border-color: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.05);
+  transform: none;
+}
+
+.gn-btn:hover::after { display: none; }
+
+.gn-btn-ghost {
+  color: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.gn-btn-ghost:hover {
+  color: rgba(255,255,255,0.6);
+  border-color: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.03);
+}
+
+.gn-btn-danger { color: rgba(255,255,255,0.2); }
+.gn-btn-danger:hover {
+  color: rgba(255,255,255,0.7);
+  border-color: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.04);
+}
+
+.gn-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.gn-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 0;
+}
+
+.gn-avatar {
+  width: 24px; height: 24px;
+  border-radius: 0;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.05em;
+}
+
+.gn-username {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.7);
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.gn-role {
+  font-size: 9px;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.gn-mobile-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 0;
+  padding: 7px 9px;
+  cursor: pointer;
+  color: rgba(255,255,255,0.5);
+  font-size: 16px;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.gn-drawer {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  background: #000;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 0 8px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.gn-drawer.open { max-height: 400px; padding: 8px; }
+.gn-drawer .gn-btn { justify-content: flex-start; padding: 9px 12px; }
+
+@media (max-width: 700px) {
+  .gn-nav, .gn-divider, .gn-actions { display: none; }
+  .gn-mobile-toggle { display: flex; align-items: center; }
+  .gn-drawer { display: flex; }
+}
