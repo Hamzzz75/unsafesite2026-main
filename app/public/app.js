@@ -319,3 +319,15 @@ if (token) {
 }
 
 updateUi();
+
+const urlParams = new URLSearchParams(window.location.search);
+const action = urlParams.get('action');
+if (action && token) {
+  if (action === 'profil') loadMe();
+  else if (action === 'posts') loadPosts(false);
+  else if (action === 'tous') loadPosts(true);
+  else if (action === 'creer') showCreatePost();
+  else if (action === 'admin') loadAdmin();
+  else if (action === 'jwt') showToken();
+  else if (action === 'logout') logout();
+}

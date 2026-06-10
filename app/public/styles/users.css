@@ -1,0 +1,229 @@
+.users-page {
+  min-height: 100vh;
+  background: #0a0a0a;
+  color: #fff;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
+.users-page main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+/* Header */
+.users-header {
+  margin-bottom: 36px;
+}
+
+.users-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.users-prompt {
+  color: rgba(255,255,255,0.25);
+  font-size: 18px;
+}
+
+.users-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: rgba(255,255,255,0.85);
+  margin: 0;
+}
+
+.users-subtitle {
+  color: rgba(255,255,255,0.2);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  margin: 6px 0 20px 0;
+}
+
+/* Search */
+.users-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  padding-bottom: 8px;
+  max-width: 400px;
+}
+
+.search-sym {
+  color: rgba(255,255,255,0.3);
+  font-size: 14px;
+}
+
+#users-search {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  width: 100%;
+  padding: 4px 0;
+  caret-color: #fff;
+  margin: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+#users-search::placeholder {
+  color: rgba(255,255,255,0.15);
+}
+
+/* Grid */
+.users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* Card */
+.user-card {
+  background: #000;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 0;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.user-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent, transparent 2px,
+    rgba(255,255,255,0.012) 2px,
+    rgba(255,255,255,0.012) 4px
+  );
+  pointer-events: none;
+}
+
+.user-card:hover {
+  border-color: rgba(255,255,255,0.3);
+}
+
+.user-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.85);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-email {
+  font-size: 10px;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+
+.badge-admin {
+  color: rgba(255,255,255,0.8);
+  border-color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.06);
+}
+
+.badge-user {
+  color: rgba(255,255,255,0.3);
+  border-color: rgba(255,255,255,0.1);
+  background: transparent;
+}
+
+.user-bio {
+  font-size: 11px;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+  font-style: italic;
+}
+
+.user-id {
+  font-size: 9px;
+  color: rgba(255,255,255,0.12);
+  letter-spacing: 0.08em;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+/* États */
+.users-loading,
+.users-empty,
+.users-error {
+  color: rgba(255,255,255,0.25);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  padding: 40px 0;
+  grid-column: 1 / -1;
+}
+
+.users-error { color: rgba(255,80,80,0.5); }
+
+/* Curseur */
+.cursor-blink {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  background: rgba(255,255,255,0.7);
+  vertical-align: middle;
+  margin-left: 4px;
+  animation: termBlink 1s step-end infinite;
+}
+
+@keyframes termBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}

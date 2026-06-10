@@ -34,3 +34,43 @@ button.action-btn:hover { background: #0f766e; }
 .file-name { font-size: .9rem; color: #6b7280; }
 pre { background: #111827; color: #d1d5db; padding: 14px; border-radius: 10px; white-space: pre-wrap; word-break: break-word; }
 .badge { display: inline-block; padding: 2px 8px; background: #e5e7eb; border-radius: 999px; font-size: .8rem; }
+
+
+header {
+  background: #000;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 20px 32px;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  position: relative;
+  overflow: hidden;
+}
+
+header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent, transparent 2px,
+    rgba(255,255,255,0.013) 2px,
+    rgba(255,255,255,0.013) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+header h1 {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.85);
+  margin: 0 0 2px;
+}
+
+header p {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.25);
+  margin: 0;
+}
