@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profil — UnsafeSite2026</title>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/styles/navbar.css" />
+  <link rel="stylesheet" href="/styles/profil.css" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="/components/app-navbar.js" defer></script>
+  <script src="/components/profil.js" defer></script>
+</head>
+<body class="profil-page">
+  <header>
+    <app-navbar></app-navbar>
+  </header>
+  <main>
+    <div class="profil-header">
+      <div class="profil-title-row">
+        <span class="profil-prompt">$</span>
+        <h1 class="profil-title">PROFIL <span class="cursor-blink"></span></h1>
+      </div>
+      <p class="profil-subtitle">// informations du compte connecté</p>
+    </div>
+    <div id="profil-content" class="profil-content">
+      <div class="profil-loading">chargement en cours<span class="cursor-blink"></span></div>
+    </div>
+  </main>
+</body>
+</html>

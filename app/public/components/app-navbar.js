@@ -8,7 +8,7 @@ class AppNavbar extends HTMLElement {
         </div>
         <div class="gn-divider"></div>
         <div class="gn-nav">
-          <button class="gn-btn" onclick="goHome('profil')">👤 Profil</button>
+          <button class="gn-btn" onclick="goToProfil()">👤 Profil</button>
           <button class="gn-btn" onclick="goToUsers()">👥 Agents</button>
           <button class="gn-btn" onclick="goHome('posts')">📋 Posts</button>
           <button class="gn-btn" onclick="goHome('tous')">👁 Tous</button>
@@ -29,7 +29,7 @@ class AppNavbar extends HTMLElement {
         <button class="gn-mobile-toggle" id="gn-toggle" aria-label="Menu">☰</button>
       </nav>
       <div class="gn-drawer" id="gn-drawer">
-        <button class="gn-btn" onclick="goHome('profil')">👤 Mon profil</button>
+        <button class="gn-btn" onclick="goToProfil()">👤 Mon profil</button>
         <button class="gn-btn" onclick="goToUsers()">👥 Agents</button>
         <button class="gn-btn" onclick="goHome('posts')">📋 Posts publics</button>
         <button class="gn-btn" onclick="goHome('tous')">👁 Tous les posts</button>
@@ -54,6 +54,14 @@ class AppNavbar extends HTMLElement {
         return;
       }
       window.location.href = '/pages/users.html';
+    };
+
+    window.goToProfil = function() {
+      if (!localStorage.getItem('token')) {
+        alert('Vous devez être connecté pour accéder à cette page.');
+        return;
+      }
+      window.location.href = '/pages/profil.html';
     };
   }
 }

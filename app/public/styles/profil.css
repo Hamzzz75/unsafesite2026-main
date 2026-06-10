@@ -1,0 +1,263 @@
+.profil-page {
+  min-height: 100vh;
+  background: #0a0a0a;
+  color: #fff;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
+.profil-page main {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.profil-header { margin-bottom: 32px; }
+
+.profil-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profil-prompt {
+  color: rgba(255,255,255,0.25);
+  font-size: 18px;
+}
+
+.profil-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: rgba(255,255,255,0.85);
+  margin: 0;
+}
+
+.profil-subtitle {
+  color: rgba(255,255,255,0.2);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  margin: 6px 0 0;
+}
+
+.profil-card {
+  background: #000;
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.profil-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent, transparent 2px,
+    rgba(255,255,255,0.012) 2px,
+    rgba(255,255,255,0.012) 4px
+  );
+  pointer-events: none;
+}
+
+.profil-card-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.profil-avatar {
+  width: 56px; height: 56px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.7);
+  flex-shrink: 0;
+}
+
+.profil-name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.85);
+  text-transform: uppercase;
+}
+
+.profil-email {
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  margin: 4px 0;
+}
+
+.profil-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid;
+}
+
+.badge-admin {
+  color: rgba(255,255,255,0.8);
+  border-color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.06);
+}
+
+.badge-user {
+  color: rgba(255,255,255,0.3);
+  border-color: rgba(255,255,255,0.1);
+  background: transparent;
+}
+
+.profil-bio {
+  font-size: 11px;
+  color: rgba(255,255,255,0.25);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+
+.profil-id {
+  font-size: 9px;
+  color: rgba(255,255,255,0.12);
+  letter-spacing: 0.08em;
+  margin-bottom: 16px;
+}
+
+.profil-divider {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  margin: 20px 0;
+}
+
+.profil-field {
+  margin-bottom: 20px;
+}
+
+.profil-field label {
+  display: block;
+  color: rgba(255,255,255,0.35);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.profil-field input,
+.profil-field textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  border-radius: 0;
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 6px 0;
+  outline: none;
+  caret-color: #fff;
+  margin: 0;
+  box-shadow: none;
+}
+
+.profil-field textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.profil-field input:focus,
+.profil-field textarea:focus {
+  border-bottom-color: rgba(255,255,255,0.6);
+}
+
+.profil-file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.profil-browse {
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 5px 10px;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  transition: background 0.2s;
+}
+
+.profil-browse:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.profil-file-name {
+  font-size: 10px;
+  color: rgba(255,255,255,0.2);
+}
+
+.profil-avatar-preview {
+  width: 48px; height: 48px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,0.15);
+  margin-top: 8px;
+}
+
+.profil-btn-row {
+  margin-top: 24px;
+}
+
+.profil-btn-row button {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.45);
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  padding: 11px 24px;
+  cursor: pointer;
+  margin: 0;
+  transition: background 0.2s;
+}
+
+.profil-btn-row button:hover {
+  background: rgba(255,255,255,0.07);
+}
+
+.profil-msg {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  margin-top: 12px;
+  padding: 8px 0;
+}
+
+.profil-msg-ok { color: rgba(100,200,100,0.8); }
+.profil-msg-error { color: rgba(255,80,80,0.8); }
+
+.profil-loading,
+.profil-error {
+  color: rgba(255,255,255,0.25);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  padding: 40px 0;
+}
+
+.profil-error { color: rgba(255,80,80,0.5); }
+
+.cursor-blink {
+  display: inline-block;
+  width: 7px; height: 14px;
+  background: rgba(255,255,255,0.7);
+  vertical-align: middle;
+  margin-left: 4px;
+  animation: termBlink 1s step-end infinite;
+}
+
+@keyframes termBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
