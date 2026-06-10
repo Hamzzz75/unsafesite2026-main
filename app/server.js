@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const multer = require('multer');
 const { MongoClient, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
+const argon2 = require('argon2');
 const path = require('path');
 
 const upload = multer({
@@ -72,8 +73,21 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ error: 'Identifiants invalides' });
   }
 
-  const user = await db.collection('users').findOne({ username, password });
+  const user = await db.collection('users').findOne({ username });
   if (!user) return res.status(401).json({ error: 'Identifiants invalides' });
+
+  let passwordValid = false;
+  try {
+    if (user.password.startsWith('$argon2')) {
+      passwordValid = await argon2.verify(user.password, password);
+    } else {
+      passwordValid = user.password === password;
+    }
+  } catch(e) {
+    return res.status(401).json({ error: 'Identifiants invalides' });
+  }
+
+  if (!passwordValid) return res.status(401).json({ error: 'Identifiants invalides' });
 
   const token = signToken(user);
   res.json({
@@ -101,10 +115,12 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(409).json({ error: 'Nom utilisateur déjà utilisé' });
   }
 
+  const hashedPassword = await argon2.hash(password);
+
   const user = {
     username,
     email,
-    password,
+    password: hashedPassword,
     role: 'user',
     isActive: true,
     avatar: '/uploads/default.svg',
@@ -158,7 +174,9 @@ app.put('/api/users/:id', authRequired, upload.single('avatar'), async (req, res
     if (req.file) {
       updates.avatar = `/uploads/${req.file.filename}`;
     }
-    if (req.body.password) updates.password = req.body.password;
+    if (req.body.password) {
+      updates.password = await argon2.hash(req.body.password);
+    }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'Aucune donnée à mettre à jour' });

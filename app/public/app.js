@@ -197,7 +197,7 @@ function logout() {
   currentUser = null;
   currentPosts = [];
   localStorage.removeItem('token');
-  updateUi();
+  window.location.href = '/pages/login.html';
 }
 
 function showProfileForm(user) {
