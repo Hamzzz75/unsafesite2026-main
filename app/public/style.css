@@ -1,10 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+
 * { box-sizing: border-box; }
 body { font-family: Arial, sans-serif; margin: 0; background: #f3f4f6; color: #111827; }
-header { background: #111827; color: white; padding: 24px; }
+header { background: #000;   background: transparent;color: white; padding: 24px; text-align: center; }
 main { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+
+
 .card { background: white; border-radius: 14px; padding: 20px; margin-bottom: 18px; box-shadow: 0 6px 20px rgba(0,0,0,.08); }
 .hidden { display: none; }
-label { display:block; margin-top: 12px; font-weight: bold; }
+label { display: block; margin-top: 12px; font-weight: bold; }
 input, textarea { width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #d1d5db; border-radius: 8px; }
 textarea { min-height: 90px; }
 button { margin: 8px 6px 8px 0; padding: 10px 14px; border: 0; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; }
@@ -13,7 +18,7 @@ button.action-btn { background: #10b981; }
 button.action-btn:hover { background: #0f766e; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 4px; }
 .hint { color: #6b7280; font-size: .95rem; }
-.profile { display:flex; align-items:center; gap: 14px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 12px; margin: 8px 0; }
+.profile { display: flex; align-items: center; gap: 14px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 12px; margin: 8px 0; }
 .profile img { width: 64px; height: 64px; border-radius: 50%; background: #e5e7eb; }
 .post { border-left: 4px solid #2563eb; padding: 10px 14px; background: #f9fafb; margin: 10px 0; }
 .post-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
