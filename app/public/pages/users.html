@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agents — UnsafeSite2026</title>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/styles/navbar.css" />
+  <link rel="stylesheet" href="/styles/users.css" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="/components/app-navbar.js" defer></script>
+  <script src="/components/users.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body class="users-page">
+  <header>
+    <app-navbar></app-navbar>
+  </header>
+  <main>
+    <div class="users-header">
+      <div class="users-title-row">
+        <span class="users-prompt">$</span>
+        <h1 class="users-title">AGENTS <span class="cursor-blink"></span></h1>
+      </div>
+      <p class="users-subtitle">// liste des utilisateurs enregistrés</p>
+      <div class="users-search-row">
+        <span class="search-sym">_</span>
+        <input id="users-search" type="text" placeholder="filtrer par nom..." autocomplete="off" />
+      </div>
+    </div>
+    <div id="users-grid" class="users-grid">
+      <div class="users-loading">chargement en cours<span class="cursor-blink"></span></div>
+    </div>
+  </main>
+</body>
+</html>
