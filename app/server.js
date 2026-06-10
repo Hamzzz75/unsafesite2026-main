@@ -7,6 +7,7 @@ const { MongoClient, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 const argon2 = require('argon2');
 const path = require('path');
+const xss = require('xss');
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -22,8 +23,15 @@ const upload = multer({
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/tp_jwt_mongodb';
-const JWT_SECRET = process.env.JWT_SECRET || 'x7#Kp2$mQz9!vLw4@nRj6&hYb8^cTe1';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '365d';
+
+// ✅ JWT_SECRET obligatoire via .env
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('ERREUR : JWT_SECRET manquant dans .env');
+  process.exit(1);
+}
+
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
 
 let db;
 
@@ -31,6 +39,48 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ✅ Brute Force : store en mémoire par IP
+const loginAttempts = new Map(); // ip -> { count, blockedUntil }
+
+function checkBruteForce(req, res, next) {
+  const ip = req.ip;
+  const now = Date.now();
+  const data = loginAttempts.get(ip) || { count: 0, blockedUntil: null };
+
+  if (data.blockedUntil && now < data.blockedUntil) {
+    const remaining = Math.ceil((data.blockedUntil - now) / 1000 / 60);
+    return res.status(429).json({
+      error: `Votre IP est bloquée suite à 3 tentatives échouées. Réessayez dans ${remaining} minute(s).`,
+      blocked: true
+    });
+  }
+
+  // Reset si le blocage est expiré
+  if (data.blockedUntil && now >= data.blockedUntil) {
+    loginAttempts.delete(ip);
+  }
+
+  next();
+}
+
+function recordFailedAttempt(ip) {
+  const data = loginAttempts.get(ip) || { count: 0, blockedUntil: null };
+  data.count += 1;
+
+  if (data.count >= 3) {
+    data.blockedUntil = Date.now() + 15 * 60 * 1000; // bloqué 15 min
+    data.count = 0;
+    console.warn(`[SECURITY] IP bloquée : ${ip}`);
+  }
+
+  loginAttempts.set(ip, data);
+  return data.count;
+}
+
+function resetAttempts(ip) {
+  loginAttempts.delete(ip);
+}
 
 app.get('/', (req, res) => {
   res.redirect('/pages/login.html');
@@ -88,28 +138,50 @@ function adminRequired(req, res, next) {
   return res.status(403).json({ error: 'Admin uniquement' });
 }
 
-app.post('/api/auth/login', async (req, res) => {
+// ✅ Login sécurisé : brute force + validation stricte + argon2 uniquement
+app.post('/api/auth/login', checkBruteForce, async (req, res) => {
   const { username, password } = req.body;
 
-  if (typeof username !== 'string' || typeof password !== 'string') {
+  // ✅ Validation stricte des types et longueurs (anti injection NoSQL)
+  if (
+    typeof username !== 'string' || typeof password !== 'string' ||
+    username.length > 50 || password.length > 128
+  ) {
     return res.status(400).json({ error: 'Identifiants invalides' });
   }
 
-  const user = await db.collection('users').findOne({ username });
-  if (!user) return res.status(401).json({ error: 'Identifiants invalides' });
+  const user = await db.collection('users').findOne({ username: String(username) });
+
+  if (!user) {
+    const count = recordFailedAttempt(req.ip);
+    const remaining = 3 - count;
+    if (remaining > 0) {
+      return res.status(401).json({ error: `Identifiants invalides. ${remaining} tentative(s) restante(s) avant blocage.` });
+    } else {
+      return res.status(429).json({ error: 'Votre IP est bloquée suite à 3 tentatives échouées. Réessayez dans 15 minutes.', blocked: true });
+    }
+  }
 
   let passwordValid = false;
   try {
-    if (user.password.startsWith('$argon2')) {
-      passwordValid = await argon2.verify(user.password, password);
-    } else {
-      passwordValid = user.password === password;
-    }
+    // ✅ Argon2 uniquement, plus de comparaison en clair
+    passwordValid = await argon2.verify(user.password, password);
   } catch(e) {
     return res.status(401).json({ error: 'Identifiants invalides' });
   }
 
-  if (!passwordValid) return res.status(401).json({ error: 'Identifiants invalides' });
+  if (!passwordValid) {
+    const count = recordFailedAttempt(req.ip);
+    const remaining = 3 - count;
+    if (remaining > 0) {
+      return res.status(401).json({ error: `Identifiants invalides. ${remaining} tentative(s) restante(s) avant blocage.` });
+    } else {
+      return res.status(429).json({ error: 'Votre IP est bloquée suite à 3 tentatives échouées. Réessayez dans 15 minutes.', blocked: true });
+    }
+  }
+
+  // ✅ Succès : reset du compteur
+  resetAttempts(req.ip);
 
   const token = signToken(user);
   res.json({
@@ -128,11 +200,21 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
+
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Nom utilisateur, email et mot de passe sont requis' });
   }
 
-  const existing = await db.collection('users').findOne({ username });
+  // ✅ Validation des types
+  if (typeof username !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Données invalides' });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caractères' });
+  }
+
+  const existing = await db.collection('users').findOne({ username: String(username) });
   if (existing) {
     return res.status(409).json({ error: 'Nom utilisateur déjà utilisé' });
   }
@@ -140,8 +222,8 @@ app.post('/api/auth/register', async (req, res) => {
   const hashedPassword = await argon2.hash(password);
 
   const user = {
-    username,
-    email,
+    username: xss(username),
+    email: xss(email),
     password: hashedPassword,
     role: 'user',
     isActive: true,
@@ -189,14 +271,18 @@ app.put('/api/users/:id', authRequired, upload.single('avatar'), async (req, res
     }
 
     const updates = {};
-    if (req.body.username) updates.username = req.body.username;
-    if (req.body.email) updates.email = req.body.email;
-    if (req.body.bio !== undefined) updates.bio = req.body.bio;
-    if (req.body.avatar !== undefined) updates.avatar = req.body.avatar;
+    // ✅ Sanitisation XSS sur tous les champs
+    if (req.body.username) updates.username = xss(req.body.username);
+    if (req.body.email)    updates.email    = xss(req.body.email);
+    if (req.body.bio !== undefined) updates.bio = xss(req.body.bio);
+    if (req.body.avatar !== undefined) updates.avatar = xss(req.body.avatar);
     if (req.file) {
       updates.avatar = `/uploads/${req.file.filename}`;
     }
     if (req.body.password) {
+      if (req.body.password.length < 8) {
+        return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caractères' });
+      }
       updates.password = await argon2.hash(req.body.password);
     }
 
@@ -256,8 +342,9 @@ app.post('/api/posts', authRequired, async (req, res) => {
   if (!title || !content) return res.status(400).json({ error: 'Titre et contenu obligatoires' });
 
   const post = {
-    title,
-    content,
+    // ✅ Sanitisation XSS
+    title: xss(title),
+    content: xss(content),
     authorId: new ObjectId(req.user.id),
     authorUsername: req.user.username,
     visibility: 'public',
@@ -278,8 +365,9 @@ app.put('/api/posts/:id', authRequired, async (req, res) => {
     }
 
     const updates = {};
-    if (req.body.title) updates.title = req.body.title;
-    if (req.body.content) updates.content = req.body.content;
+    // ✅ Sanitisation XSS
+    if (req.body.title)   updates.title   = xss(req.body.title);
+    if (req.body.content) updates.content = xss(req.body.content);
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'Aucune donnée à mettre à jour' });
@@ -294,11 +382,10 @@ app.put('/api/posts/:id', authRequired, async (req, res) => {
 });
 
 app.get('/api/admin', authRequired, adminRequired, async (req, res) => {
-  const users = await db.collection('users').find({}).toArray();
+  const users = await db.collection('users').find({}, { projection: { password: 0 } }).toArray();
   const flags = await db.collection('flags').find({}).toArray();
   res.json({
     message: 'Bienvenue dans le panneau admin',
-    warning: 'Ce endpoint fait confiance au rôle contenu dans le JWT.',
     users,
     flags
   });
@@ -310,7 +397,7 @@ MongoClient.connect(MONGO_URI)
   .then(client => {
     db = client.db();
     app.listen(PORT, () => {
-      console.log(`TP vulnérable disponible sur http://localhost:${PORT}`);
+      console.log(`TP disponible sur http://localhost:${PORT}`);
     });
   })
   .catch(err => {

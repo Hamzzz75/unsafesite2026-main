@@ -19,12 +19,15 @@
   },
   "homepage": "https://github.com/Hamzzz75/unsafesite2026-main#readme",
   "dependencies": {
+    "argon2": "^0.44.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.3.0",
     "morgan": "^1.11.0",
-    "multer": "^2.1.1"
+    "multer": "^2.1.1",
+    "xss": "^1.0.15"
   }
 }

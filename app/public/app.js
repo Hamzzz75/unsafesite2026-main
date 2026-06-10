@@ -7,6 +7,16 @@ function authHeaders() {
   return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
 }
 
+// ✅ Protection XSS côté client : échappement de toutes les valeurs dynamiques
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 async function loadCurrentUser() {
   if (!token) return null;
   const res = await fetch('/api/me', { headers: authHeaders() });
@@ -46,13 +56,13 @@ function showResult(data) {
 
 function renderItem(item) {
   if (item.username) {
-    const userId = item._id || item.id || '';
+    const userId = escapeHtml(item._id || item.id || '');
     return `<div class="profile">
-      <img src="${item.avatar || '/uploads/default.svg'}" alt="avatar" />
+      <img src="${escapeHtml(item.avatar || '/uploads/default.svg')}" alt="avatar" />
       <div>
-        <strong>${item.username}</strong> <span class="badge">${item.role || ''}</span><br>
-        <small>${item.email || ''}</small>
-        <p>${item.bio || ''}</p>
+        <strong>${escapeHtml(item.username)}</strong> <span class="badge">${escapeHtml(item.role || '')}</span><br>
+        <small>${escapeHtml(item.email || '')}</small>
+        <p>${escapeHtml(item.bio || '')}</p>
         <small>ID MongoDB : ${userId}</small>
       </div>
       ${renderUserActions(item)}
@@ -61,24 +71,24 @@ function renderItem(item) {
   if (item.title) {
     return `<div class="post">
       <div class="post-header">
-        <img src="${item.authorAvatar || '/uploads/default.svg'}" alt="avatar" />
+        <img src="${escapeHtml(item.authorAvatar || '/uploads/default.svg')}" alt="avatar" />
         <div>
-          <h3>${item.title} <span class="badge">${item.visibility || 'public'}</span></h3>
-          <small>Par ${item.authorUsername || 'inconnu'} - ${item.createdAt || ''}</small>
+          <h3>${escapeHtml(item.title)} <span class="badge">${escapeHtml(item.visibility || 'public')}</span></h3>
+          <small>Par ${escapeHtml(item.authorUsername || 'inconnu')} - ${escapeHtml(item.createdAt || '')}</small>
         </div>
       </div>
-      <p>${item.content}</p>
+      <p>${escapeHtml(item.content)}</p>
       ${renderPostActions(item)}
     </div>`;
   }
-  return `<pre>${JSON.stringify(item, null, 2)}</pre>`;
+  return `<pre>${escapeHtml(JSON.stringify(item, null, 2))}</pre>`;
 }
 
 function renderUserActions(item) {
   if (!currentUser) return '';
-  const targetId = item._id || item.id || '';
+  const targetId = escapeHtml(item._id || item.id || '');
   const currentId = currentUser._id || currentUser.id || '';
-  const canEdit = currentUser.role === 'admin' || currentId === targetId || currentUser.username === item.username;
+  const canEdit = currentUser.role === 'admin' || currentId === (item._id || item.id) || currentUser.username === item.username;
   if (!canEdit) return '';
   return `<button class="action-btn" onclick="editUser('${targetId}')">Modifier</button>`;
 }
@@ -87,7 +97,7 @@ function renderPostActions(item) {
   if (!currentUser) return '';
   const canEdit = currentUser.role === 'admin' || item.authorUsername === currentUser.username;
   if (!canEdit) return '';
-  const postId = item._id || item.id || '';
+  const postId = escapeHtml(item._id || item.id || '');
   return `<button class="action-btn" onclick="editPost('${postId}')">Modifier</button>`;
 }
 
@@ -105,18 +115,44 @@ function updateUi() {
   }
 }
 
+// ✅ Login avec affichage du message de blocage IP
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('username').value;
   const password = document.getElementById('password').value;
+  const errorEl = document.getElementById('login-error');
+
+  // Reset message erreur
+  if (errorEl) errorEl.textContent = '';
 
   const res = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
   });
+
   const data = await res.json();
-  if (!res.ok) return showResult(data);
+
+  if (!res.ok) {
+    // ✅ Affichage du message de blocage IP
+    if (data.blocked) {
+      if (errorEl) {
+        errorEl.textContent = data.error;
+        errorEl.style.color = 'red';
+        errorEl.style.fontWeight = 'bold';
+      } else {
+        alert(data.error);
+      }
+    } else {
+      if (errorEl) {
+        errorEl.textContent = data.error || 'Identifiants invalides';
+      } else {
+        showResult(data);
+      }
+    }
+    return;
+  }
+
   token = data.token;
   localStorage.setItem('token', token);
   updateUi();
@@ -204,27 +240,27 @@ function showProfileForm(user) {
   if (!user) return showResult({ error: 'Utilisateur introuvable.' });
   const title = document.getElementById('result-title');
   const result = document.getElementById('result');
-  const userId = user._id || user.id || '';
-  const isMe = currentUser && (currentUser._id === userId || currentUser.id === userId);
-  title.textContent = isMe ? 'Mon profil' : `Profil ${user.username}`;
+  const userId = escapeHtml(user._id || user.id || '');
+  const isMe = currentUser && (currentUser._id === (user._id || user.id) || currentUser.id === (user._id || user.id));
+  title.textContent = isMe ? 'Mon profil' : `Profil ${escapeHtml(user.username)}`;
   document.getElementById('result-card').classList.remove('hidden');
   result.innerHTML = `
     <form id="profile-form" enctype="multipart/form-data">
       <label>Nom utilisateur</label>
-      <input id="profile-username" value="${user.username || ''}" />
+      <input id="profile-username" value="${escapeHtml(user.username || '')}" />
       <label>Email</label>
-      <input id="profile-email" type="email" value="${user.email || ''}" />
+      <input id="profile-email" type="email" value="${escapeHtml(user.email || '')}" />
       <label>Bio</label>
-      <textarea id="profile-bio">${user.bio || ''}</textarea>
+      <textarea id="profile-bio">${escapeHtml(user.bio || '')}</textarea>
       <label>Avatar actuel</label>
       <div class="avatar-preview-container">
-        <img class="avatar-preview" src="${user.avatar || '/uploads/default.svg'}" alt="avatar actuel" />
+        <img class="avatar-preview" src="${escapeHtml(user.avatar || '/uploads/default.svg')}" alt="avatar actuel" />
       </div>
       <label>Nouvel avatar</label>
       <div class="file-input-wrapper">
         <input id="profile-avatar-file" type="file" accept="image/*" />
         <label for="profile-avatar-file" class="btn-browse">Parcourir</label>
-        <span id="file-name" class="file-name">Aucun fichier s\u00e9lectionn\u00e9</span>
+        <span id="file-name" class="file-name">Aucun fichier sélectionné</span>
       </div>
       <label>Mot de passe (laisser vide pour ne pas changer)</label>
       <input id="profile-password" type="password" />
@@ -232,10 +268,10 @@ function showProfileForm(user) {
     </form>
   `;
   document.getElementById('profile-avatar-file').addEventListener('change', (e) => {
-    const fileName = e.target.files[0] ? e.target.files[0].name : 'Aucun fichier s\u00e9lectionn\u00e9';
+    const fileName = e.target.files[0] ? e.target.files[0].name : 'Aucun fichier sélectionné';
     document.getElementById('file-name').textContent = fileName;
   });
-  document.getElementById('profile-form').addEventListener('submit', (e) => saveProfile(e, userId));
+  document.getElementById('profile-form').addEventListener('submit', (e) => saveProfile(e, user._id || user.id || ''));
 }
 
 async function saveProfile(e, userId) {
@@ -253,7 +289,7 @@ async function saveProfile(e, userId) {
   if (password) formData.append('password', password);
   if (avatarFile) formData.append('avatar', avatarFile);
 
-  const res = await fetch('/api/users/' + userId, {
+  const res = await fetch('/api/users/' + encodeURIComponent(userId), {
     method: 'PUT',
     headers: { 'Authorization': 'Bearer ' + token },
     body: formData
@@ -268,7 +304,7 @@ async function saveProfile(e, userId) {
 }
 
 async function editUser(userId) {
-  const res = await fetch('/api/users/' + userId, { headers: authHeaders() });
+  const res = await fetch('/api/users/' + encodeURIComponent(userId), { headers: authHeaders() });
   const data = await res.json();
   if (!res.ok) return showResult(data);
   showProfileForm(data);
@@ -288,9 +324,9 @@ function editPost(postId) {
   result.innerHTML = `
     <form id="edit-post-form">
       <label>Titre</label>
-      <input id="edit-post-title" value="${post.title || ''}" />
+      <input id="edit-post-title" value="${escapeHtml(post.title || '')}" />
       <label>Contenu</label>
-      <textarea id="edit-post-content">${post.content || ''}</textarea>
+      <textarea id="edit-post-content">${escapeHtml(post.content || '')}</textarea>
       <button type="submit">Mettre à jour</button>
     </form>
   `;
@@ -301,7 +337,7 @@ async function savePostEdit(e, postId) {
   e.preventDefault();
   const title = document.getElementById('edit-post-title').value;
   const content = document.getElementById('edit-post-content').value;
-  const res = await fetch('/api/posts/' + postId, {
+  const res = await fetch('/api/posts/' + encodeURIComponent(postId), {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify({ title, content })
