@@ -36,6 +36,28 @@ app.get('/', (req, res) => {
   res.redirect('/pages/login.html');
 });
 
+const PROTECTED_PAGES = [
+  '/index.html',
+  '/pages/profil.html',
+  '/pages/users.html'
+];
+
+app.use((req, res, next) => {
+  if (PROTECTED_PAGES.includes(req.path)) {
+    const token = req.query.token;
+    if (!token) {
+      return res.redirect('/pages/login.html');
+    }
+    try {
+      jwt.verify(token, JWT_SECRET);
+      return next();
+    } catch(e) {
+      return res.redirect('/pages/login.html');
+    }
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 function signToken(user) {
