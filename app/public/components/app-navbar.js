@@ -4,7 +4,7 @@ class AppNavbar extends HTMLElement {
       <nav class="gn-bar">
         <div class="gn-brand" onclick="goHome()" style="cursor:pointer">
           <div class="gn-brand-icon">⬡</div>
-          UnsafeSite<span style="color:#333">2026</span>
+          Tu vas rien hacker enculé<span style="color:#333">2026</span>
         </div>
         <div class="gn-divider"></div>
         <div class="gn-nav">

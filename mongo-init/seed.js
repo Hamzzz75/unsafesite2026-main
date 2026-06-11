@@ -4,14 +4,14 @@ db.users.drop();
 db.posts.drop();
 db.flags.drop();
 
-const PASSWORD_HASH = "$argon2id$v=19$m=65536,t=3,p=4$77c++60q/hA60X97p8qNkw$jte7ltOVkhpcrrhs8ueXcam75vZyq+jHrMapy65rJJE";
+const PASSWORD_INIT = "$argon2id$v=19$m=65536,t=3,p=4$gWSca/rNKpxxu0JaTNL+yQ$Qm6SqmspKJMM8OYpTkHMwsdVNNW8M/9Bhlptl5FeG4o";
 
 db.users.insertMany([
   {
     _id: ObjectId("665000000000000000000001"),
     username: "admin",
     email: "admin@tp.local",
-    password: PASSWORD_HASH,
+    password: PASSWORD_INIT,
     role: "admin",
     avatar: "/uploads/admin.svg",
     bio: "Administrateur de la plateforme.",
@@ -21,7 +21,7 @@ db.users.insertMany([
     _id: ObjectId("665000000000000000000002"),
     username: "alice",
     email: "alice@tp.local",
-    password: PASSWORD_HASH,
+    password: PASSWORD_INIT,
     role: "user",
     avatar: "/uploads/alice.svg",
     bio: "Étudiante en cybersécurité.",
@@ -31,7 +31,7 @@ db.users.insertMany([
     _id: ObjectId("665000000000000000000003"),
     username: "bob",
     email: "bob@tp.local",
-    password: PASSWORD_HASH,
+    password: PASSWORD_INIT,
     role: "user",
     avatar: "/uploads/bob.svg",
     bio: "Développeur junior.",
@@ -41,7 +41,7 @@ db.users.insertMany([
     _id: ObjectId("665000000000000000000004"),
     username: "charlie",
     email: "charlie@tp.local",
-    password: PASSWORD_HASH,
+    password: PASSWORD_INIT,
     role: "user",
     avatar: "/uploads/charlie.svg",
     bio: "Compte désactivé mais encore présent en base.",

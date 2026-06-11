@@ -32,6 +32,13 @@ class LoginForm extends HTMLElement {
               <button type="submit">[ Authenticate ]</button>
             </div>
           </form>
+          <p class="hint" style="margin-top:20px; text-align:center;">
+            Pas encore de compte ?
+            <a href="/pages/register.html"
+               style="color:rgba(255,255,255,0.55); text-decoration:underline; letter-spacing:0.06em;">
+              [ Register ]
+            </a>
+          </p>
         </div>
       </section>
     `;

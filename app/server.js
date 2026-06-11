@@ -9,25 +9,54 @@ const argon2 = require('argon2');
 const path = require('path');
 const xss = require('xss');
 
+// ─────────────────────────────────────────────
+// FAILLE 1 — Validation du type et taille de fichier (upload avatar)
+// DESCRIPTION : Sans filtre, un attaquant peut uploader un fichier .php, .html
+//   ou un fichier de plusieurs Go pour saturer le disque ou exécuter du code.
+// CORRECTION : On filtre sur le mimetype ET l'extension, et on limite à 2 Mo.
+// ─────────────────────────────────────────────
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+
 const upload = multer({
   storage: multer.diskStorage({
     destination: path.join(__dirname, 'public', 'uploads'),
     filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname) || '';
+      const ext = path.extname(file.originalname).toLowerCase() || '';
       const name = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`;
       cb(null, name);
     }
-  })
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2 Mo max
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype) && ALLOWED_EXTENSIONS.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Type de fichier non autorisé. Seules les images sont acceptées.'));
+    }
+  }
 });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/tp_jwt_mongodb';
 
-// ✅ JWT_SECRET obligatoire via .env
+// ─────────────────────────────────────────────
+// FAILLE 2 — JWT secret faible
+// DESCRIPTION : Un secret court ou prévisible ("secret", "password"...) peut
+//   être cracké en quelques secondes avec hashcat ou jwt_tool en mode bruteforce.
+//   L'attaquant forge alors un token admin valide.
+// CORRECTION : On exige un secret d'au moins 32 caractères via .env.
+//   Ne jamais mettre le secret dans docker-compose.yml en clair en prod.
+// ─────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.error('ERREUR : JWT_SECRET manquant dans .env');
+  process.exit(1);
+}
+if (JWT_SECRET.length < 32) {
+  console.error('ERREUR : JWT_SECRET trop court (minimum 32 caractères)');
   process.exit(1);
 }
 
@@ -35,13 +64,35 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
 
 let db;
 
-app.use(cors());
+// ─────────────────────────────────────────────
+// FAILLE 3 — CORS ouvert sur toutes les origines
+// DESCRIPTION : app.use(cors()) sans option accepte les requêtes de n'importe
+//   quel domaine. Un site malveillant peut faire des requêtes authentifiées à
+//   l'API au nom de l'utilisateur connecté (attaque CSRF-like via CORS).
+// CORRECTION : On restreint aux origines connues via une allowlist.
+//   En prod, remplacer par le vrai domaine.
+// ─────────────────────────────────────────────
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Origine non autorisée par la politique CORS'));
+    }
+  },
+  credentials: true
+}));
+
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Brute Force : store en mémoire par IP
-const loginAttempts = new Map(); // ip -> { count, blockedUntil }
+// ─────────────────────────────────────────────
+// Brute force protection par IP
+// ─────────────────────────────────────────────
+const loginAttempts = new Map();
 
 function checkBruteForce(req, res, next) {
   const ip = req.ip;
@@ -56,7 +107,6 @@ function checkBruteForce(req, res, next) {
     });
   }
 
-  // Reset si le blocage est expiré
   if (data.blockedUntil && now >= data.blockedUntil) {
     loginAttempts.delete(ip);
   }
@@ -69,7 +119,7 @@ function recordFailedAttempt(ip) {
   data.count += 1;
 
   if (data.count >= 3) {
-    data.blockedUntil = Date.now() + 15 * 60 * 1000; // bloqué 15 min
+    data.blockedUntil = Date.now() + 15 * 60 * 1000;
     data.count = 0;
     console.warn(`[SECURITY] IP bloquée : ${ip}`);
   }
@@ -86,28 +136,7 @@ app.get('/', (req, res) => {
   res.redirect('/pages/login.html');
 });
 
-const PROTECTED_PAGES = [
-  '/index.html',
-  '/pages/profil.html',
-  '/pages/users.html'
-];
-
-app.use((req, res, next) => {
-  if (PROTECTED_PAGES.includes(req.path)) {
-    const token = req.query.token;
-    if (!token) {
-      return res.redirect('/pages/login.html');
-    }
-    try {
-      jwt.verify(token, JWT_SECRET);
-      return next();
-    } catch(e) {
-      return res.redirect('/pages/login.html');
-    }
-  }
-  next();
-});
-
+// Protection des pages gérée côté client via auth-guard.js
 app.use(express.static(path.join(__dirname, 'public')));
 
 function signToken(user) {
@@ -138,11 +167,9 @@ function adminRequired(req, res, next) {
   return res.status(403).json({ error: 'Admin uniquement' });
 }
 
-// ✅ Login sécurisé : brute force + validation stricte + argon2 uniquement
 app.post('/api/auth/login', checkBruteForce, async (req, res) => {
   const { username, password } = req.body;
 
-  // ✅ Validation stricte des types et longueurs (anti injection NoSQL)
   if (
     typeof username !== 'string' || typeof password !== 'string' ||
     username.length > 50 || password.length > 128
@@ -164,7 +191,6 @@ app.post('/api/auth/login', checkBruteForce, async (req, res) => {
 
   let passwordValid = false;
   try {
-    // ✅ Argon2 uniquement, plus de comparaison en clair
     passwordValid = await argon2.verify(user.password, password);
   } catch(e) {
     return res.status(401).json({ error: 'Identifiants invalides' });
@@ -180,7 +206,6 @@ app.post('/api/auth/login', checkBruteForce, async (req, res) => {
     }
   }
 
-  // ✅ Succès : reset du compteur
   resetAttempts(req.ip);
 
   const token = signToken(user);
@@ -205,7 +230,6 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(400).json({ error: 'Nom utilisateur, email et mot de passe sont requis' });
   }
 
-  // ✅ Validation des types
   if (typeof username !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
     return res.status(400).json({ error: 'Données invalides' });
   }
@@ -244,7 +268,10 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 app.get('/api/me', authRequired, async (req, res) => {
-  const user = await db.collection('users').findOne({ _id: new ObjectId(req.user.id) }, { projection: { password: 0 } });
+  const user = await db.collection('users').findOne(
+    { _id: new ObjectId(req.user.id) },
+    { projection: { password: 0 } }
+  );
   res.json(user);
 });
 
@@ -255,7 +282,10 @@ app.get('/api/users', authRequired, async (req, res) => {
 
 app.get('/api/users/:id', authRequired, async (req, res) => {
   try {
-    const user = await db.collection('users').findOne({ _id: new ObjectId(req.params.id) }, { projection: { password: 0 } });
+    const user = await db.collection('users').findOne(
+      { _id: new ObjectId(req.params.id) },
+      { projection: { password: 0 } }
+    );
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
     res.json(user);
   } catch (e) {
@@ -264,6 +294,13 @@ app.get('/api/users/:id', authRequired, async (req, res) => {
 });
 
 app.put('/api/users/:id', authRequired, upload.single('avatar'), async (req, res) => {
+  // ─────────────────────────────────────────────
+  // FAILLE 4 — result.value cassé sur MongoDB 6+
+  // DESCRIPTION : Depuis MongoDB 6, findOneAndUpdate retourne directement le
+  //   document mis à jour, plus dans une propriété .value. Cela causait un 404
+  //   systématique même après une mise à jour réussie.
+  // CORRECTION : On utilise directement le retour de findOneAndUpdate.
+  // ─────────────────────────────────────────────
   try {
     const targetId = req.params.id;
     if (req.user.id !== targetId && req.user.role !== 'admin') {
@@ -271,7 +308,6 @@ app.put('/api/users/:id', authRequired, upload.single('avatar'), async (req, res
     }
 
     const updates = {};
-    // ✅ Sanitisation XSS sur tous les champs
     if (req.body.username) updates.username = xss(req.body.username);
     if (req.body.email)    updates.email    = xss(req.body.email);
     if (req.body.bio !== undefined) updates.bio = xss(req.body.bio);
@@ -290,15 +326,24 @@ app.put('/api/users/:id', authRequired, upload.single('avatar'), async (req, res
       return res.status(400).json({ error: 'Aucune donnée à mettre à jour' });
     }
 
-    const result = await db.collection('users').findOneAndUpdate(
+    const updatedUser = await db.collection('users').findOneAndUpdate(
       { _id: new ObjectId(targetId) },
       { $set: updates },
       { returnDocument: 'after', projection: { password: 0 } }
     );
 
-    if (!result.value) return res.status(404).json({ error: 'Utilisateur introuvable' });
-    res.json(result.value);
+    if (!updatedUser) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    res.json(updatedUser);
   } catch (e) {
+    // ─────────────────────────────────────────────
+    // FAILLE 5 — Erreur d'upload non gérée
+    // DESCRIPTION : Si multer rejette le fichier (mauvais type, trop lourd),
+    //   l'erreur n'était pas interceptée et causait un crash non contrôlé.
+    // CORRECTION : On distingue les erreurs multer des erreurs génériques.
+    // ─────────────────────────────────────────────
+    if (e instanceof multer.MulterError || e.message === 'Type de fichier non autorisé. Seules les images sont acceptées.') {
+      return res.status(400).json({ error: e.message });
+    }
     res.status(400).json({ error: 'ObjectId invalide' });
   }
 });
@@ -317,11 +362,7 @@ app.get('/api/posts', authRequired, async (req, res) => {
         as: 'author'
       }
     },
-    {
-      $addFields: {
-        author: { $arrayElemAt: ['$author', 0] }
-      }
-    },
+    { $addFields: { author: { $arrayElemAt: ['$author', 0] } } },
     {
       $project: {
         title: 1,
@@ -342,7 +383,6 @@ app.post('/api/posts', authRequired, async (req, res) => {
   if (!title || !content) return res.status(400).json({ error: 'Titre et contenu obligatoires' });
 
   const post = {
-    // ✅ Sanitisation XSS
     title: xss(title),
     content: xss(content),
     authorId: new ObjectId(req.user.id),
@@ -365,7 +405,6 @@ app.put('/api/posts/:id', authRequired, async (req, res) => {
     }
 
     const updates = {};
-    // ✅ Sanitisation XSS
     if (req.body.title)   updates.title   = xss(req.body.title);
     if (req.body.content) updates.content = xss(req.body.content);
 

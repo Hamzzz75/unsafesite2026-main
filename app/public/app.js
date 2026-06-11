@@ -1,13 +1,109 @@
 let token = localStorage.getItem('token');
 let currentUser = null;
-let currentPosts = [];
-let lastPostsIncludeAdmin = false;
 
 function authHeaders() {
   return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
 }
 
-// ✅ Protection XSS côté client : échappement de toutes les valeurs dynamiques
+async function loadCurrentUser() {
+  if (!token) return null;
+  const res = await fetch('/api/me', { headers: authHeaders() });
+  if (!res.ok) return null;
+  currentUser = await res.json();
+
+  const usernameEl = document.getElementById('gn-username-label');
+  const roleEl     = document.getElementById('gn-role-label');
+  const avatarEl   = document.getElementById('gn-avatar-initials');
+  if (usernameEl) usernameEl.textContent = currentUser.username || '—';
+  if (roleEl)     roleEl.textContent     = currentUser.role     || 'user';
+  if (avatarEl)   avatarEl.textContent   = (currentUser.username || '??').slice(0, 2).toUpperCase();
+
+  return currentUser;
+}
+
+function logout() {
+  token = null;
+  currentUser = null;
+  localStorage.removeItem('token');
+  window.location.replace('/pages/login.html');
+}
+
+// ─────────────────────────────────────────────
+// Router de vues
+// ─────────────────────────────────────────────
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const target = document.getElementById(id);
+  if (target) target.classList.add('active');
+}
+
+async function handleAction(action) {
+  switch (action) {
+
+    case 'posts':
+      showView('view-feed');
+      // Recharge le feed public
+      document.dispatchEvent(new CustomEvent('load-posts', { detail: { includeAdmin: false } }));
+      break;
+
+    case 'creer':
+      showView('view-feed');
+      // Scroll vers le créateur de post
+      document.querySelector('post-creator')?.scrollIntoView({ behavior: 'smooth' });
+      break;
+
+    case 'tous':
+      showView('view-tous');
+      // Déclenche le chargement avec flag admin sur le feed-tous
+      document.dispatchEvent(new CustomEvent('load-posts-tous', { detail: { includeAdmin: true } }));
+      break;
+
+    case 'admin':
+      showView('view-result');
+      await loadAdmin();
+      break;
+
+    case 'jwt':
+      showView('view-result');
+      showToken();
+      break;
+
+    case 'logout':
+      logout();
+      break;
+
+    default:
+      showView('view-feed');
+  }
+}
+
+async function loadAdmin() {
+  const res = await fetch('/api/admin', { headers: authHeaders() });
+  const data = await res.json();
+  const resultCard = document.getElementById('result-card');
+  const resultEl   = document.getElementById('result');
+  const titleEl    = document.getElementById('result-title');
+  if (resultCard && resultEl && titleEl) {
+    titleEl.textContent = 'Panneau Admin';
+    resultEl.innerHTML  = `<pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+    resultCard.classList.remove('hidden');
+  }
+}
+
+function showToken() {
+  const parts = token ? token.split('.') : [];
+  let decoded = null;
+  try { decoded = JSON.parse(atob(parts[1])); } catch(e) {}
+  const resultCard = document.getElementById('result-card');
+  const resultEl   = document.getElementById('result');
+  const titleEl    = document.getElementById('result-title');
+  if (resultCard && resultEl && titleEl) {
+    titleEl.textContent = 'JWT Token';
+    resultEl.innerHTML  = `<pre>${escapeHtml(JSON.stringify({ token, decodedPayload: decoded }, null, 2))}</pre>`;
+    resultCard.classList.remove('hidden');
+  }
+}
+
 function escapeHtml(str) {
   return String(str || '')
     .replace(/&/g, '&amp;')
@@ -17,353 +113,19 @@ function escapeHtml(str) {
     .replace(/'/g, '&#x27;');
 }
 
-async function loadCurrentUser() {
-  if (!token) return null;
-  const res = await fetch('/api/me', { headers: authHeaders() });
-  if (!res.ok) return null;
-  currentUser = await res.json();
-  return currentUser;
-}
-
-function showResult(data) {
-  document.getElementById('result-card').classList.remove('hidden');
-  const result = document.getElementById('result');
-  const title = document.getElementById('result-title');
-
-  if (Array.isArray(data)) {
-    currentPosts = data.filter(item => item && item.title);
-    if (data.length === 0) {
-      title.textContent = 'Aucun résultat';
-    } else if (data[0] && data[0].title) {
-      title.textContent = 'Posts';
-    } else if (data[0] && data[0].username) {
-      title.textContent = 'Utilisateurs';
-    } else {
-      title.textContent = 'Résultat';
-    }
-    result.innerHTML = data.map(item => renderItem(item)).join('');
-  } else {
-    if (data && data.title) {
-      title.textContent = 'Post';
-    } else if (data && data.username) {
-      title.textContent = currentUser && currentUser._id === (data._id || data.id) ? 'Mon profil' : 'Utilisateur';
-    } else {
-      title.textContent = 'Résultat';
-    }
-    result.innerHTML = renderItem(data);
-  }
-}
-
-function renderItem(item) {
-  if (item.username) {
-    const userId = escapeHtml(item._id || item.id || '');
-    return `<div class="profile">
-      <img src="${escapeHtml(item.avatar || '/uploads/default.svg')}" alt="avatar" />
-      <div>
-        <strong>${escapeHtml(item.username)}</strong> <span class="badge">${escapeHtml(item.role || '')}</span><br>
-        <small>${escapeHtml(item.email || '')}</small>
-        <p>${escapeHtml(item.bio || '')}</p>
-        <small>ID MongoDB : ${userId}</small>
-      </div>
-      ${renderUserActions(item)}
-    </div>`;
-  }
-  if (item.title) {
-    return `<div class="post">
-      <div class="post-header">
-        <img src="${escapeHtml(item.authorAvatar || '/uploads/default.svg')}" alt="avatar" />
-        <div>
-          <h3>${escapeHtml(item.title)} <span class="badge">${escapeHtml(item.visibility || 'public')}</span></h3>
-          <small>Par ${escapeHtml(item.authorUsername || 'inconnu')} - ${escapeHtml(item.createdAt || '')}</small>
-        </div>
-      </div>
-      <p>${escapeHtml(item.content)}</p>
-      ${renderPostActions(item)}
-    </div>`;
-  }
-  return `<pre>${escapeHtml(JSON.stringify(item, null, 2))}</pre>`;
-}
-
-function renderUserActions(item) {
-  if (!currentUser) return '';
-  const targetId = escapeHtml(item._id || item.id || '');
-  const currentId = currentUser._id || currentUser.id || '';
-  const canEdit = currentUser.role === 'admin' || currentId === (item._id || item.id) || currentUser.username === item.username;
-  if (!canEdit) return '';
-  return `<button class="action-btn" onclick="editUser('${targetId}')">Modifier</button>`;
-}
-
-function renderPostActions(item) {
-  if (!currentUser) return '';
-  const canEdit = currentUser.role === 'admin' || item.authorUsername === currentUser.username;
-  if (!canEdit) return '';
-  const postId = escapeHtml(item._id || item.id || '');
-  return `<button class="action-btn" onclick="editPost('${postId}')">Modifier</button>`;
-}
-
-function updateUi() {
-  const registerCard = document.getElementById('register-card');
-  if (token) {
-    document.getElementById('login-card').classList.add('hidden');
-    registerCard.classList.add('hidden');
-    document.getElementById('app-card').classList.remove('hidden');
-  } else {
-    document.getElementById('login-card').classList.remove('hidden');
-    registerCard.classList.remove('hidden');
-    document.getElementById('app-card').classList.add('hidden');
-    document.getElementById('result-card').classList.add('hidden');
-  }
-}
-
-// ✅ Login avec affichage du message de blocage IP
-document.getElementById('login-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-  const errorEl = document.getElementById('login-error');
-
-  // Reset message erreur
-  if (errorEl) errorEl.textContent = '';
-
-  const res = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    // ✅ Affichage du message de blocage IP
-    if (data.blocked) {
-      if (errorEl) {
-        errorEl.textContent = data.error;
-        errorEl.style.color = 'red';
-        errorEl.style.fontWeight = 'bold';
-      } else {
-        alert(data.error);
-      }
-    } else {
-      if (errorEl) {
-        errorEl.textContent = data.error || 'Identifiants invalides';
-      } else {
-        showResult(data);
-      }
-    }
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!token) {
+    window.location.replace('/pages/login.html');
     return;
   }
 
-  token = data.token;
-  localStorage.setItem('token', token);
-  updateUi();
   await loadCurrentUser();
-  await loadPosts(false);
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const action = urlParams.get('action') || 'posts';
+
+  await handleAction(action);
+
+  // Nettoie l'URL sans recharger la page
+  window.history.replaceState({}, '', '/index.html');
 });
-
-document.getElementById('register-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const username = document.getElementById('register-username').value;
-  const email = document.getElementById('register-email').value;
-  const password = document.getElementById('register-password').value;
-
-  const res = await fetch('/api/auth/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email, password })
-  });
-  const data = await res.json();
-  showResult(data);
-  if (res.ok) {
-    document.getElementById('register-form').reset();
-  }
-});
-
-document.getElementById('post-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const title = document.getElementById('post-title').value;
-  const content = document.getElementById('post-content').value;
-  const res = await fetch('/api/posts', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ title, content })
-  });
-  showResult(await res.json());
-});
-
-async function loadMe() {
-  const user = await loadCurrentUser();
-  if (!user) return showResult({ error: 'Impossible de charger votre profil.' });
-  showProfileForm(user);
-}
-
-async function loadUsers() {
-  const res = await fetch('/api/users', { headers: authHeaders() });
-  if (!res.ok) return showResult(await res.json());
-  const users = await res.json();
-  showResult(users);
-}
-
-function showCreatePost() {
-  document.getElementById('create-post-section').classList.toggle('hidden');
-}
-
-async function loadPosts(includeAdmin) {
-  lastPostsIncludeAdmin = includeAdmin;
-  document.getElementById('create-post-section').classList.add('hidden');
-  const res = await fetch('/api/posts?includeAdmin=' + includeAdmin, { headers: authHeaders() });
-  if (!res.ok) return showResult(await res.json());
-  const posts = await res.json();
-  showResult(posts);
-}
-
-async function loadAdmin() {
-  const res = await fetch('/api/admin', { headers: authHeaders() });
-  showResult(await res.json());
-}
-
-function showToken() {
-  const parts = token ? token.split('.') : [];
-  let decoded = null;
-  try { decoded = JSON.parse(atob(parts[1])); } catch(e) {}
-  showResult({ token, decodedPayload: decoded });
-}
-
-function logout() {
-  token = null;
-  currentUser = null;
-  currentPosts = [];
-  localStorage.removeItem('token');
-  window.location.href = '/pages/login.html';
-}
-
-function showProfileForm(user) {
-  if (!user) return showResult({ error: 'Utilisateur introuvable.' });
-  const title = document.getElementById('result-title');
-  const result = document.getElementById('result');
-  const userId = escapeHtml(user._id || user.id || '');
-  const isMe = currentUser && (currentUser._id === (user._id || user.id) || currentUser.id === (user._id || user.id));
-  title.textContent = isMe ? 'Mon profil' : `Profil ${escapeHtml(user.username)}`;
-  document.getElementById('result-card').classList.remove('hidden');
-  result.innerHTML = `
-    <form id="profile-form" enctype="multipart/form-data">
-      <label>Nom utilisateur</label>
-      <input id="profile-username" value="${escapeHtml(user.username || '')}" />
-      <label>Email</label>
-      <input id="profile-email" type="email" value="${escapeHtml(user.email || '')}" />
-      <label>Bio</label>
-      <textarea id="profile-bio">${escapeHtml(user.bio || '')}</textarea>
-      <label>Avatar actuel</label>
-      <div class="avatar-preview-container">
-        <img class="avatar-preview" src="${escapeHtml(user.avatar || '/uploads/default.svg')}" alt="avatar actuel" />
-      </div>
-      <label>Nouvel avatar</label>
-      <div class="file-input-wrapper">
-        <input id="profile-avatar-file" type="file" accept="image/*" />
-        <label for="profile-avatar-file" class="btn-browse">Parcourir</label>
-        <span id="file-name" class="file-name">Aucun fichier sélectionné</span>
-      </div>
-      <label>Mot de passe (laisser vide pour ne pas changer)</label>
-      <input id="profile-password" type="password" />
-      <button type="submit">Enregistrer</button>
-    </form>
-  `;
-  document.getElementById('profile-avatar-file').addEventListener('change', (e) => {
-    const fileName = e.target.files[0] ? e.target.files[0].name : 'Aucun fichier sélectionné';
-    document.getElementById('file-name').textContent = fileName;
-  });
-  document.getElementById('profile-form').addEventListener('submit', (e) => saveProfile(e, user._id || user.id || ''));
-}
-
-async function saveProfile(e, userId) {
-  e.preventDefault();
-  const username = document.getElementById('profile-username').value;
-  const email = document.getElementById('profile-email').value;
-  const bio = document.getElementById('profile-bio').value;
-  const password = document.getElementById('profile-password').value;
-  const avatarFile = document.getElementById('profile-avatar-file').files[0];
-
-  const formData = new FormData();
-  formData.append('username', username);
-  formData.append('email', email);
-  formData.append('bio', bio);
-  if (password) formData.append('password', password);
-  if (avatarFile) formData.append('avatar', avatarFile);
-
-  const res = await fetch('/api/users/' + encodeURIComponent(userId), {
-    method: 'PUT',
-    headers: { 'Authorization': 'Bearer ' + token },
-    body: formData
-  });
-  const data = await res.json();
-  if (res.ok) {
-    if (currentUser && (currentUser._id === userId || currentUser.id === userId)) {
-      await loadCurrentUser();
-    }
-  }
-  showResult(data);
-}
-
-async function editUser(userId) {
-  const res = await fetch('/api/users/' + encodeURIComponent(userId), { headers: authHeaders() });
-  const data = await res.json();
-  if (!res.ok) return showResult(data);
-  showProfileForm(data);
-}
-
-function editPost(postId) {
-  const post = currentPosts.find(item => {
-    const id = item._id || item.id || '';
-    return id === postId;
-  });
-  if (!post) return showResult({ error: 'Post introuvable pour édition.' });
-
-  const title = document.getElementById('result-title');
-  const result = document.getElementById('result');
-  title.textContent = 'Modifier le post';
-  document.getElementById('result-card').classList.remove('hidden');
-  result.innerHTML = `
-    <form id="edit-post-form">
-      <label>Titre</label>
-      <input id="edit-post-title" value="${escapeHtml(post.title || '')}" />
-      <label>Contenu</label>
-      <textarea id="edit-post-content">${escapeHtml(post.content || '')}</textarea>
-      <button type="submit">Mettre à jour</button>
-    </form>
-  `;
-  document.getElementById('edit-post-form').addEventListener('submit', (e) => savePostEdit(e, postId));
-}
-
-async function savePostEdit(e, postId) {
-  e.preventDefault();
-  const title = document.getElementById('edit-post-title').value;
-  const content = document.getElementById('edit-post-content').value;
-  const res = await fetch('/api/posts/' + encodeURIComponent(postId), {
-    method: 'PUT',
-    headers: authHeaders(),
-    body: JSON.stringify({ title, content })
-  });
-  const data = await res.json();
-  if (res.ok) {
-    await loadPosts(lastPostsIncludeAdmin);
-  } else {
-    showResult(data);
-  }
-}
-
-if (token) {
-  loadCurrentUser();
-}
-
-updateUi();
-
-const urlParams = new URLSearchParams(window.location.search);
-const action = urlParams.get('action');
-if (action && token) {
-  if (action === 'profil') loadMe();
-  else if (action === 'posts') loadPosts(false);
-  else if (action === 'tous') loadPosts(true);
-  else if (action === 'creer') showCreatePost();
-  else if (action === 'admin') loadAdmin();
-  else if (action === 'jwt') showToken();
-  else if (action === 'logout') logout();
-}

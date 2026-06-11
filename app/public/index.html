@@ -4,36 +4,101 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Tu hackeras pas fdp</title>
+
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/styles/navbar.css" />
+  <link rel="stylesheet" href="/styles/index-main.css" />
 
-  <script src="/components/login-form.js" defer></script>
-  <script src="/components/register-form.js" defer></script>
+  <!-- En PREMIER, sans defer -->
+  <script src="/auth-guard.js"></script>
+
   <script src="/components/app-navbar.js" defer></script>
   <script src="/components/post-creator.js" defer></script>
+  <script src="/components/post-feed.js" defer></script>
   <script src="/components/result-card.js" defer></script>
-  <script src="/js/auth-guard.js"></script>
+  <script src="/app.js" defer></script>
+
+  <style>
+    /* Fond identique aux pages login/register */
+    html, body {
+      min-height: 100vh;
+      margin: 0;
+      background: #1a2018;
+      background-image:
+        radial-gradient(ellipse at 20% 50%, rgba(74, 103, 65, 0.25) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(255,255,255,0.02) 0%, transparent 50%);
+      color: #fff;
+    }
+
+    body > header {
+      background: transparent;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 20px 32px;
+      font-family: 'JetBrains Mono', Consolas, monospace;
+    }
+    body > header h1 {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.85);
+      margin: 0 0 2px;
+    }
+    body > header p {
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: rgba(255,255,255,0.25);
+      margin: 0;
+    }
+
+    /* Système de vues */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    #view-feed {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 16px;
+    }
+    #view-feed .page-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 700px) {
+      #view-feed .page-grid { grid-template-columns: 1fr; }
+    }
+
+    #view-tous, #view-result {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 16px;
+    }
+  </style>
 </head>
 <body>
   <header>
     <h1>Hamza - Walid - Julien</h1>
     <p>Essaie de hacker mon site je retrouve ta daronne</p>
   </header>
-      <app-navbar></app-navbar>
+
+  <app-navbar></app-navbar>
 
   <main>
-    <login-form></login-form>
+    <div id="view-feed" class="view active">
+      <div class="page-grid">
+        <div><post-creator></post-creator></div>
+        <div><post-feed></post-feed></div>
+      </div>
+    </div>
 
-    <register-form></register-form>
+    <div id="view-tous" class="view">
+      <post-feed id="feed-tous"></post-feed>
+    </div>
 
-    <section class="card hidden" id="app-card">
-
-      <post-creator></post-creator>
-    </section>
-
-    <result-card></result-card>
+    <div id="view-result" class="view">
+      <result-card></result-card>
+    </div>
   </main>
-
-  <script src="/app.js" defer></script>
 </body>
 </html>
