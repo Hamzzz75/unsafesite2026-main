@@ -16,9 +16,9 @@ services:
     container_name: tp_node_app_kaki
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "8008:8008"
     environment:
-      PORT: 3000
+      PORT: 8008
       MONGO_URI: mongodb://mongodb:27017/tp_jwt_mongodb
       JWT_SECRET: ca_c_est_le_jwt_secret_en_vrai_si_tu_le_trouves_tes_un_crack_et_je_te_suce
       JWT_EXPIRES_IN: 15m
