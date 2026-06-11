@@ -126,6 +126,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await handleAction(action);
 
-  // Nettoie l'URL sans recharger la page
   window.history.replaceState({}, '', '/index.html');
 });

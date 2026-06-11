@@ -21,15 +21,15 @@ class LoginForm extends HTMLElement {
           <form id="login-form">
             <div class="term-field">
               <label for="username">// username</label>
-              <input id="username" autocomplete="username" placeholder="user@domain" />
+              <input id="username" maxlength="50" autocomplete="username" placeholder="user@domain" />
             </div>
             <div class="term-field">
               <label for="password">// password</label>
-              <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
+              <input id="password" type="password" maxlength="128" autocomplete="current-password" placeholder="••••••••" />
             </div>
             <div id="login-error" style="color:rgba(255,80,80,0.8); font-size:11px; letter-spacing:0.08em; margin-top:12px; display:none;"></div>
             <div class="term-btn-row">
-              <button type="submit">[ Authenticate ]</button>
+              <button type="submit" id="login-btn">[ Authenticate ]</button>
             </div>
           </form>
           <p class="hint" style="margin-top:20px; text-align:center;">
@@ -42,12 +42,12 @@ class LoginForm extends HTMLElement {
         </div>
       </section>
     `;
-
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const username = document.getElementById('username').value;
+      const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
       const errorEl = document.getElementById('login-error');
+      const btnEl = document.getElementById('login-btn');
       errorEl.style.display = 'none';
 
       const res = await fetch('/api/auth/login', {
@@ -55,19 +55,21 @@ class LoginForm extends HTMLElement {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-
       const data = await res.json();
-
       if (!res.ok) {
         errorEl.textContent = '// erreur : ' + (data.error || 'identifiants invalides');
         errorEl.style.display = 'block';
+        if (data.blocked) {
+          btnEl.disabled = true;
+          btnEl.textContent = '[ Bloqué ]';
+          btnEl.style.opacity = '0.4';
+          btnEl.style.cursor = 'not-allowed';
+        }
         return;
       }
-
       localStorage.setItem('token', data.token);
       window.location.href = '/index.html';
     });
   }
 }
-
 customElements.define('login-form', LoginForm);

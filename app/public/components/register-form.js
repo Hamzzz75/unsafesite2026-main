@@ -21,19 +21,19 @@ class RegisterForm extends HTMLElement {
           <form id="register-form">
             <div class="term-field">
               <label for="register-username">// username</label>
-              <input id="register-username" autocomplete="username" placeholder="mail@facile.fr" />
+              <input id="register-username" maxlength="50" autocomplete="username" placeholder="mail@facile.fr" />
             </div>
             <div class="term-field">
               <label for="register-email">// email</label>
-              <input id="register-email" type="email" autocomplete="email" placeholder="ton@pere.com" />
+              <input id="register-email" type="email" maxlength="100" autocomplete="email" placeholder="ton@pere.com" />
             </div>
             <div class="term-field">
               <label for="register-password">// password</label>
-              <input id="register-password" type="password" autocomplete="new-password" placeholder="••••••••" />
+              <input id="register-password" type="password" maxlength="128" autocomplete="new-password" placeholder="••••••••" />
             </div>
             <div id="register-error" style="color:rgba(255,80,80,0.8); font-size:11px; letter-spacing:0.08em; margin-top:12px; display:none;"></div>
             <div class="term-btn-row">
-              <button type="submit">[ Create account ]</button>
+              <button type="submit" id="register-btn">[ Create account ]</button>
             </div>
           </form>
           <p class="hint" style="margin-top:16px; text-align:center;">
@@ -46,32 +46,40 @@ class RegisterForm extends HTMLElement {
         </div>
       </section>
     `;
-
     document.getElementById('register-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const username = document.getElementById('register-username').value;
-      const email    = document.getElementById('register-email').value;
+      const username = document.getElementById('register-username').value.trim();
+      const email    = document.getElementById('register-email').value.trim();
       const password = document.getElementById('register-password').value;
       const errorEl  = document.getElementById('register-error');
+      const btnEl    = document.getElementById('register-btn');
       errorEl.style.display = 'none';
+
+      if (password.length < 8) {
+        errorEl.textContent = '// erreur : le mot de passe doit faire au moins 8 caractères';
+        errorEl.style.display = 'block';
+        return;
+      }
 
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password })
       });
-
       const data = await res.json();
-
       if (!res.ok) {
         errorEl.textContent = '// erreur : ' + (data.error || 'inscription échouée');
         errorEl.style.display = 'block';
+        if (data.blocked) {
+          btnEl.disabled = true;
+          btnEl.textContent = '[ Bloqué ]';
+          btnEl.style.opacity = '0.4';
+          btnEl.style.cursor = 'not-allowed';
+        }
         return;
       }
-
       window.location.href = '/pages/login.html';
     });
   }
 }
-
 customElements.define('register-form', RegisterForm);

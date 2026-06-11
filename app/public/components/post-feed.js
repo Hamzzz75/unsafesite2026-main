@@ -5,7 +5,6 @@ class PostFeed extends HTMLElement {
       <div id="posts-list-${this.id || 'default'}" class="posts-panel"></div>
     `;
 
-    // Le feed principal écoute load-posts (posts publics)
     if (this.id !== 'feed-tous') {
       document.addEventListener('load-posts', (e) => {
         this.loadPosts(e.detail?.includeAdmin ?? false);
@@ -13,7 +12,6 @@ class PostFeed extends HTMLElement {
       this.loadPosts(false);
     }
 
-    // Le feed "tous" écoute load-posts-tous
     if (this.id === 'feed-tous') {
       document.addEventListener('load-posts-tous', (e) => {
         this.loadPosts(e.detail?.includeAdmin ?? true);

@@ -16,18 +16,17 @@ class PostCreator extends HTMLElement {
           </div>
           <div class="term-field">
             <label>// title</label>
-            <input id="post-title" placeholder="Subject line..." />
+            <input id="post-title" maxlength="200" placeholder="Subject line..." />
           </div>
           <div class="term-field">
             <label>// content</label>
-            <textarea id="post-content" placeholder="Message body..."></textarea>
+            <textarea id="post-content" maxlength="5000" placeholder="Message body..."></textarea>
           </div>
           <div id="post-error" style="color:rgba(255,80,80,0.8);font-size:11px;letter-spacing:0.08em;margin-bottom:12px;display:none;"></div>
           <button class="term-btn" id="post-submit">[ Publish ]</button>
         </div>
       </div>
     `;
-
     this.querySelector('#post-submit').addEventListener('click', async () => {
       const title = this.querySelector('#post-title').value.trim();
       const content = this.querySelector('#post-content').value.trim();
@@ -40,13 +39,24 @@ class PostCreator extends HTMLElement {
         return;
       }
 
+      if (title.length > 200) {
+        errorEl.textContent = '// erreur : titre trop long (200 caractères max)';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      if (content.length > 5000) {
+        errorEl.textContent = '// erreur : contenu trop long (5000 caractères max)';
+        errorEl.style.display = 'block';
+        return;
+      }
+
       const token = localStorage.getItem('token');
       const res = await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({ title, content })
       });
-
       if (res.ok) {
         this.querySelector('#post-title').value = '';
         this.querySelector('#post-content').value = '';
@@ -59,5 +69,4 @@ class PostCreator extends HTMLElement {
     });
   }
 }
-
 customElements.define('post-creator', PostCreator);

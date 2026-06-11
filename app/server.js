@@ -9,12 +9,6 @@ const argon2 = require('argon2');
 const path = require('path');
 const xss = require('xss');
 
-// ─────────────────────────────────────────────
-// FAILLE 1 — Validation du type et taille de fichier (upload avatar)
-// DESCRIPTION : Sans filtre, un attaquant peut uploader un fichier .php, .html
-//   ou un fichier de plusieurs Go pour saturer le disque ou exécuter du code.
-// CORRECTION : On filtre sur le mimetype ET l'extension, et on limite à 2 Mo.
-// ─────────────────────────────────────────────
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
 
@@ -27,7 +21,7 @@ const upload = multer({
       cb(null, name);
     }
   }),
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2 Mo max
+  limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (ALLOWED_MIME_TYPES.includes(file.mimetype) && ALLOWED_EXTENSIONS.includes(ext)) {
@@ -42,14 +36,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/tp_jwt_mongodb';
 
-// ─────────────────────────────────────────────
-// FAILLE 2 — JWT secret faible
-// DESCRIPTION : Un secret court ou prévisible ("secret", "password"...) peut
-//   être cracké en quelques secondes avec hashcat ou jwt_tool en mode bruteforce.
-//   L'attaquant forge alors un token admin valide.
-// CORRECTION : On exige un secret d'au moins 32 caractères via .env.
-//   Ne jamais mettre le secret dans docker-compose.yml en clair en prod.
-// ─────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.error('ERREUR : JWT_SECRET manquant dans .env');
@@ -64,14 +50,6 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
 
 let db;
 
-// ─────────────────────────────────────────────
-// FAILLE 3 — CORS ouvert sur toutes les origines
-// DESCRIPTION : app.use(cors()) sans option accepte les requêtes de n'importe
-//   quel domaine. Un site malveillant peut faire des requêtes authentifiées à
-//   l'API au nom de l'utilisateur connecté (attaque CSRF-like via CORS).
-// CORRECTION : On restreint aux origines connues via une allowlist.
-//   En prod, remplacer par le vrai domaine.
-// ─────────────────────────────────────────────
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
 
 app.use(cors({
@@ -90,9 +68,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ─────────────────────────────────────────────
-// Brute force protection par IP
+// Brute force protection par IP — login ET register
 // ─────────────────────────────────────────────
 const loginAttempts = new Map();
+const registerAttempts = new Map();
 
 function checkBruteForce(req, res, next) {
   const ip = req.ip;
@@ -114,6 +93,26 @@ function checkBruteForce(req, res, next) {
   next();
 }
 
+function checkRegisterBruteForce(req, res, next) {
+  const ip = req.ip;
+  const now = Date.now();
+  const data = registerAttempts.get(ip) || { count: 0, blockedUntil: null };
+
+  if (data.blockedUntil && now < data.blockedUntil) {
+    const remaining = Math.ceil((data.blockedUntil - now) / 1000 / 60);
+    return res.status(429).json({
+      error: `Trop de créations de compte. Réessayez dans ${remaining} minute(s).`,
+      blocked: true
+    });
+  }
+
+  if (data.blockedUntil && now >= data.blockedUntil) {
+    registerAttempts.delete(ip);
+  }
+
+  next();
+}
+
 function recordFailedAttempt(ip) {
   const data = loginAttempts.get(ip) || { count: 0, blockedUntil: null };
   data.count += 1;
@@ -121,10 +120,24 @@ function recordFailedAttempt(ip) {
   if (data.count >= 3) {
     data.blockedUntil = Date.now() + 15 * 60 * 1000;
     data.count = 0;
-    console.warn(`[SECURITY] IP bloquée : ${ip}`);
+    console.warn(`[SECURITY] IP bloquée login : ${ip}`);
   }
 
   loginAttempts.set(ip, data);
+  return data.count;
+}
+
+function recordRegisterAttempt(ip) {
+  const data = registerAttempts.get(ip) || { count: 0, blockedUntil: null };
+  data.count += 1;
+
+  if (data.count >= 5) {
+    data.blockedUntil = Date.now() + 30 * 60 * 1000;
+    data.count = 0;
+    console.warn(`[SECURITY] IP bloquée register : ${ip}`);
+  }
+
+  registerAttempts.set(ip, data);
   return data.count;
 }
 
@@ -136,7 +149,6 @@ app.get('/', (req, res) => {
   res.redirect('/pages/login.html');
 });
 
-// Protection des pages gérée côté client via auth-guard.js
 app.use(express.static(path.join(__dirname, 'public')));
 
 function signToken(user) {
@@ -223,7 +235,7 @@ app.post('/api/auth/login', checkBruteForce, async (req, res) => {
   });
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', checkRegisterBruteForce, async (req, res) => {
   const { username, email, password } = req.body;
 
   if (!username || !email || !password) {
@@ -234,13 +246,20 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(400).json({ error: 'Données invalides' });
   }
 
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!EMAIL_REGEX.test(email)) {
+    return res.status(400).json({ error: 'Email invalide' });
+  }
+
   if (password.length < 8) {
     return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caractères' });
   }
 
+  recordRegisterAttempt(req.ip);
+
   const existing = await db.collection('users').findOne({ username: String(username) });
   if (existing) {
-    return res.status(409).json({ error: 'Nom utilisateur déjà utilisé' });
+    return res.status(409).json({ error: 'Inscription impossible' });
   }
 
   const hashedPassword = await argon2.hash(password);
@@ -276,12 +295,15 @@ app.get('/api/me', authRequired, async (req, res) => {
 });
 
 app.get('/api/users', authRequired, async (req, res) => {
-  const users = await db.collection('users').find({}, { projection: { password: 0 } }).toArray();
+  const users = await db.collection('users').find({}, { projection: { password: 0, email: 0 } }).toArray();
   res.json(users);
 });
 
 app.get('/api/users/:id', authRequired, async (req, res) => {
   try {
+    if (req.user.id !== req.params.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
     const user = await db.collection('users').findOne(
       { _id: new ObjectId(req.params.id) },
       { projection: { password: 0 } }
@@ -294,13 +316,6 @@ app.get('/api/users/:id', authRequired, async (req, res) => {
 });
 
 app.put('/api/users/:id', authRequired, upload.single('avatar'), async (req, res) => {
-  // ─────────────────────────────────────────────
-  // FAILLE 4 — result.value cassé sur MongoDB 6+
-  // DESCRIPTION : Depuis MongoDB 6, findOneAndUpdate retourne directement le
-  //   document mis à jour, plus dans une propriété .value. Cela causait un 404
-  //   systématique même après une mise à jour réussie.
-  // CORRECTION : On utilise directement le retour de findOneAndUpdate.
-  // ─────────────────────────────────────────────
   try {
     const targetId = req.params.id;
     if (req.user.id !== targetId && req.user.role !== 'admin') {
@@ -335,12 +350,6 @@ app.put('/api/users/:id', authRequired, upload.single('avatar'), async (req, res
     if (!updatedUser) return res.status(404).json({ error: 'Utilisateur introuvable' });
     res.json(updatedUser);
   } catch (e) {
-    // ─────────────────────────────────────────────
-    // FAILLE 5 — Erreur d'upload non gérée
-    // DESCRIPTION : Si multer rejette le fichier (mauvais type, trop lourd),
-    //   l'erreur n'était pas interceptée et causait un crash non contrôlé.
-    // CORRECTION : On distingue les erreurs multer des erreurs génériques.
-    // ─────────────────────────────────────────────
     if (e instanceof multer.MulterError || e.message === 'Type de fichier non autorisé. Seules les images sont acceptées.') {
       return res.status(400).json({ error: e.message });
     }
