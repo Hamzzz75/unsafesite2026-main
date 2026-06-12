@@ -50,26 +50,16 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
 
 let db;
 
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Origine non autorisée par la politique CORS'));
-    }
-  },
-  credentials: true
-}));
+// ─────────────────────────────────────────────
+// CORS — accepte toutes les origines en réseau local
+// Pour un TP sur réseau fermé, pas besoin de restreindre
+// ─────────────────────────────────────────────
+app.use(cors());
 
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ─────────────────────────────────────────────
-// Brute force protection par IP — login ET register
-// ─────────────────────────────────────────────
 const loginAttempts = new Map();
 const registerAttempts = new Map();
 
@@ -79,9 +69,9 @@ function checkBruteForce(req, res, next) {
   const data = loginAttempts.get(ip) || { count: 0, blockedUntil: null };
 
   if (data.blockedUntil && now < data.blockedUntil) {
-    const remaining = Math.ceil((data.blockedUntil - now) / 1000 / 60);
+    const remaining = Math.ceil((data.blockedUntil - now) / 1000);
     return res.status(429).json({
-      error: `Votre IP est bloquée suite à 3 tentatives échouées. Réessayez dans ${remaining} minute(s).`,
+      error: `Votre IP est bloquée suite à 3 tentatives échouées. Réessayez dans ${remaining} seconde(s).`,
       blocked: true
     });
   }
@@ -99,9 +89,9 @@ function checkRegisterBruteForce(req, res, next) {
   const data = registerAttempts.get(ip) || { count: 0, blockedUntil: null };
 
   if (data.blockedUntil && now < data.blockedUntil) {
-    const remaining = Math.ceil((data.blockedUntil - now) / 1000 / 60);
+    const remaining = Math.ceil((data.blockedUntil - now) / 1000);
     return res.status(429).json({
-      error: `Trop de créations de compte. Réessayez dans ${remaining} minute(s).`,
+      error: `Trop de créations de compte. Réessayez dans ${remaining} seconde(s).`,
       blocked: true
     });
   }
@@ -118,7 +108,7 @@ function recordFailedAttempt(ip) {
   data.count += 1;
 
   if (data.count >= 3) {
-    data.blockedUntil = Date.now() + 15 * 60 * 1000;
+    data.blockedUntil = Date.now() + 1 * 60 * 1000; // 1 minute
     data.count = 0;
     console.warn(`[SECURITY] IP bloquée login : ${ip}`);
   }
@@ -132,7 +122,7 @@ function recordRegisterAttempt(ip) {
   data.count += 1;
 
   if (data.count >= 5) {
-    data.blockedUntil = Date.now() + 30 * 60 * 1000;
+    data.blockedUntil = Date.now() + 1 * 60 * 1000; // 1 minute
     data.count = 0;
     console.warn(`[SECURITY] IP bloquée register : ${ip}`);
   }
@@ -197,7 +187,7 @@ app.post('/api/auth/login', checkBruteForce, async (req, res) => {
     if (remaining > 0) {
       return res.status(401).json({ error: `Identifiants invalides. ${remaining} tentative(s) restante(s) avant blocage.` });
     } else {
-      return res.status(429).json({ error: 'Votre IP est bloquée suite à 3 tentatives échouées. Réessayez dans 15 minutes.', blocked: true });
+      return res.status(429).json({ error: 'Votre IP est bloquée suite à 3 tentatives échouées. Réessayez dans 1 minute.', blocked: true });
     }
   }
 
@@ -214,7 +204,7 @@ app.post('/api/auth/login', checkBruteForce, async (req, res) => {
     if (remaining > 0) {
       return res.status(401).json({ error: `Identifiants invalides. ${remaining} tentative(s) restante(s) avant blocage.` });
     } else {
-      return res.status(429).json({ error: 'Votre IP est bloquée suite à 3 tentatives échouées. Réessayez dans 15 minutes.', blocked: true });
+      return res.status(429).json({ error: 'Votre IP est bloquée suite à 3 tentatives échouées. Réessayez dans 1 minute.', blocked: true });
     }
   }
 

@@ -22,7 +22,6 @@ services:
       MONGO_URI: mongodb://mongodb:27017/tp_jwt_mongodb
       JWT_SECRET: ca_c_est_le_jwt_secret_en_vrai_si_tu_le_trouves_tes_un_crack_et_je_te_suce
       JWT_EXPIRES_IN: 15m
-      ALLOWED_ORIGINS: "http://localhost:8009,http://127.0.0.1:8009"
     depends_on:
       - mongodb
 
