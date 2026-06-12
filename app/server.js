@@ -50,18 +50,17 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
 
 let db;
 
-// ─────────────────────────────────────────────
-// CORS — accepte toutes les origines en réseau local
-// Pour un TP sur réseau fermé, pas besoin de restreindre
-// ─────────────────────────────────────────────
 app.use(cors());
-
 app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
+// ─────────────────────────────────────────────
+// Brute force login
+// ─────────────────────────────────────────────
 const loginAttempts = new Map();
 const registerAttempts = new Map();
+const postAttempts = new Map();
 
 function checkBruteForce(req, res, next) {
   const ip = req.ip;
@@ -103,12 +102,39 @@ function checkRegisterBruteForce(req, res, next) {
   next();
 }
 
+// ─────────────────────────────────────────────
+// Rate limiting posts — 3 posts par minute par user
+// S'applique aussi aux requêtes via console/API
+// ─────────────────────────────────────────────
+function checkPostRateLimit(req, res, next) {
+  const userId = req.user.id;
+  const now = Date.now();
+  const data = postAttempts.get(userId) || { count: 0, windowStart: now };
+
+  if (now - data.windowStart > 60 * 1000) {
+    data.count = 0;
+    data.windowStart = now;
+  }
+
+  if (data.count >= 3) {
+    const remaining = Math.ceil((60 * 1000 - (now - data.windowStart)) / 1000);
+    return res.status(429).json({
+      error: `Limite atteinte. Maximum 3 posts par minute. Réessayez dans ${remaining} seconde(s).`,
+      blocked: true
+    });
+  }
+
+  data.count += 1;
+  postAttempts.set(userId, data);
+  next();
+}
+
 function recordFailedAttempt(ip) {
   const data = loginAttempts.get(ip) || { count: 0, blockedUntil: null };
   data.count += 1;
 
   if (data.count >= 3) {
-    data.blockedUntil = Date.now() + 1 * 60 * 1000; // 1 minute
+    data.blockedUntil = Date.now() + 1 * 60 * 1000;
     data.count = 0;
     console.warn(`[SECURITY] IP bloquée login : ${ip}`);
   }
@@ -122,7 +148,7 @@ function recordRegisterAttempt(ip) {
   data.count += 1;
 
   if (data.count >= 5) {
-    data.blockedUntil = Date.now() + 1 * 60 * 1000; // 1 minute
+    data.blockedUntil = Date.now() + 1 * 60 * 1000;
     data.count = 0;
     console.warn(`[SECURITY] IP bloquée register : ${ip}`);
   }
@@ -353,6 +379,7 @@ app.get('/api/posts', authRequired, async (req, res) => {
   const posts = await db.collection('posts').aggregate([
     { $match: filter },
     { $sort: { createdAt: -1 } },
+    { $limit: 100 },
     {
       $lookup: {
         from: 'users',
@@ -377,9 +404,11 @@ app.get('/api/posts', authRequired, async (req, res) => {
   res.json(posts);
 });
 
-app.post('/api/posts', authRequired, async (req, res) => {
+app.post('/api/posts', authRequired, checkPostRateLimit, async (req, res) => {
   const { title, content } = req.body;
   if (!title || !content) return res.status(400).json({ error: 'Titre et contenu obligatoires' });
+  if (title.length > 200) return res.status(400).json({ error: 'Titre trop long (200 max)' });
+  if (content.length > 5000) return res.status(400).json({ error: 'Contenu trop long (5000 max)' });
 
   const post = {
     title: xss(title),
@@ -404,8 +433,14 @@ app.put('/api/posts/:id', authRequired, async (req, res) => {
     }
 
     const updates = {};
-    if (req.body.title)   updates.title   = xss(req.body.title);
-    if (req.body.content) updates.content = xss(req.body.content);
+    if (req.body.title) {
+      if (req.body.title.length > 200) return res.status(400).json({ error: 'Titre trop long' });
+      updates.title = xss(req.body.title);
+    }
+    if (req.body.content) {
+      if (req.body.content.length > 5000) return res.status(400).json({ error: 'Contenu trop long' });
+      updates.content = xss(req.body.content);
+    }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'Aucune donnée à mettre à jour' });
@@ -415,7 +450,7 @@ app.put('/api/posts/:id', authRequired, async (req, res) => {
     const updated = await db.collection('posts').findOne({ _id: new ObjectId(postId) });
     res.json(updated);
   } catch (e) {
-    res.status(400).json({ error: 'ObjectId invalide' });
+    res.status(400).json({ error: 'Requête invalide' });
   }
 });
 
