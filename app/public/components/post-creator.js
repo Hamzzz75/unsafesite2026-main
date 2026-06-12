@@ -20,7 +20,7 @@ class PostCreator extends HTMLElement {
           </div>
           <div class="term-field">
             <label>// content</label>
-            <textarea id="post-content" maxlength="5000" placeholder="Message body..."></textarea>
+            <textarea id="post-content" maxlength="1000" placeholder="Message body..."></textarea>
           </div>
           <div id="post-error" style="color:rgba(255,80,80,0.8);font-size:11px;letter-spacing:0.08em;margin-bottom:12px;display:none;"></div>
           <button class="term-btn" id="post-submit">[ Publish ]</button>
